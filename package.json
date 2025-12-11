@@ -1,0 +1,34 @@
+{
+  "name": "sistema-gestion-almacen",
+  "version": "1.0.0",
+  "description": "Sistema de Gestión para Almacén/Tienda - Implementación de 20 Requerimientos Funcionales",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "init-data": "node inicializar-datos.js",
+    "test": "echo \"Tests pendientes\" && exit 0"
+  },
+  "keywords": [
+    "almacen",
+    "gestion",
+    "inventario",
+    "ventas"
+  ],
+  "author": "Franco Vela, Benjamín Cáceres, Renato Muñoz, Vicente Vega",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^8.0.3",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "morgan": "^1.10.0",
+    "express-validator": "^7.0.1",
+    "exceljs": "^4.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
