@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compras - Sistema de Gestión</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <main class="main-content">
+            <div class="page-header">
+                <h1>📋 Órdenes de Compra</h1>
+                <p>Gestión de órdenes de compra a proveedores</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Nueva Orden de Compra</h3>
+                </div>
+                <div class="card-body">
+                    <form id="ordenForm">
+                        <div class="form-group">
+                            <label>Proveedor *</label>
+                            <select id="proveedor" required>
+                                <option value="">Seleccione un proveedor</option>
+                            </select>
+                        </div>
+
+                        <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border);">
+                        
+                        <h4>Productos a Ordenar</h4>
+                        <div class="form-group">
+                            <label>Producto</label>
+                            <select id="productoSelect">
+                                <option value="">Seleccione un producto</option>
+                            </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="form-group">
+                                <label>Cantidad</label>
+                                <input type="number" id="cantidad" min="1" value="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Precio Unitario</label>
+                                <input type="number" id="precioUnitario" min="0" step="1" placeholder="Precio de compra">
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-secondary" onclick="agregarProducto()">+ Agregar Producto</button>
+                        
+                        <div id="productosOrden" style="margin-top: 20px;"></div>
+                        
+                        <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border);">
+                        
+                        <div class="form-group">
+                            <label>Observaciones</label>
+                            <textarea id="observaciones" rows="3" placeholder="Notas adicionales sobre la orden..."></textarea>
+                        </div>
+                        
+                        <div style="margin: 20px 0; padding: 16px; background: var(--light); border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 18px; font-weight: 600;">TOTAL:</span>
+                                <span id="totalOrden" style="font-size: 24px; font-weight: 700; color: var(--primary);">$0</span>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-block" id="btnCrearOrden">Crear Orden de Compra</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h3>Órdenes de Compra</h3>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="filtroEstado" onchange="cargarOrdenes()" style="padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;">
+                            <option value="">Todos los estados</option>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Procesada">Procesada</option>
+                            <option value="Recibida">Recibida</option>
+                            <option value="Cancelada">Cancelada</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body" id="ordenesTable">Cargando...</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Ver Detalle -->
+    <div id="modalDetalle" class="modal-overlay" style="display: none;">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>📋 Detalle de Orden de Compra</h2>
+                <button class="modal-close" onclick="cerrarModal('modalDetalle')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="detalleOrden"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Cambiar Estado -->
+    <div id="modalEstado" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Cambiar Estado de Orden</h2>
+                <button class="modal-close" onclick="cerrarModal('modalEstado')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="infoOrdenEstado" style="background: var(--light); padding: 16px; border-radius: 8px; margin-bottom: 20px;"></div>
+                <form id="estadoForm">
+                    <input type="hidden" id="ordenIdEstado">
+                    <div class="form-group">
+                        <label>Nuevo Estado *</label>
+                        <select id="nuevoEstado" required>
+                            <option value="">Seleccione un estado</option>
+                            <option value="Pendiente">⏳ Pendiente</option>
+                            <option value="Procesada">📦 Procesada</option>
+                            <option value="Recibida">✅ Recibida</option>
+                            <option value="Cancelada">❌ Cancelada</option>
+                        </select>
+                        <small style="color: var(--text-light); font-size: 12px; display: block; margin-top: 8px;">
+                            <strong>Pendiente:</strong> Orden creada, esperando procesamiento<br>
+                            <strong>Procesada:</strong> Orden confirmada por el proveedor<br>
+                            <strong>Recibida:</strong> Productos recibidos en almacén<br>
+                            <strong>Cancelada:</strong> Orden cancelada
+                        </small>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" onclick="cerrarModal('modalEstado')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Actualizar Estado</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/sidebar.js"></script>
+    <script>
+        let productos = [];
+        let proveedores = [];
+        let productosSeleccionados = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!Auth.requireAuth()) return;
+            
+            await cargarDatos();
+            await cargarOrdenes();
+            
+            document.getElementById('ordenForm').addEventListener('submit', crearOrden);
+            document.getElementById('estadoForm').addEventListener('submit', actualizarEstado);
+        });
+        
+        async function cargarDatos() {
+            try {
+                const [prodData, provData] = await Promise.all([
+                    API.get('/productos'),
+                    API.get('/proveedores')
+                ]);
+                
+                productos = prodData.productos || [];
+                proveedores = provData.proveedores || [];
+                
+                // Cargar proveedores
+                const proveedorSelect = document.getElementById('proveedor');
+                proveedorSelect.innerHTML = '<option value="">Seleccione un proveedor</option>' +
+                    proveedores.map(p => `<option value="${p._id}">${p.nombre}</option>`).join('');
+                
+                // Cargar productos
+                const productoSelect = document.getElementById('productoSelect');
+                productoSelect.innerHTML = '<option value="">Seleccione un producto</option>' +
+                    productos.map(p => `<option value="${p._id}">${p.nombre} - Stock: ${p.stockSala + p.stockBodega}</option>`).join('');
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+        
+        function agregarProducto() {
+            const productoId = document.getElementById('productoSelect').value;
+            const cantidad = parseInt(document.getElementById('cantidad').value);
+            const precioUnitario = parseFloat(document.getElementById('precioUnitario').value);
+            
+            if (!productoId) {
+                alert('❌ Seleccione un producto');
+                return;
+            }
+            
+            if (!cantidad || cantidad <= 0) {
+                alert('❌ Ingrese una cantidad válida');
+                return;
+            }
+            
+            if (!precioUnitario || precioUnitario < 0) {
+                alert('❌ Ingrese un precio unitario válido');
+                return;
+            }
+            
+            const producto = productos.find(p => p._id === productoId);
+            if (!producto) {
+                alert('❌ Producto no encontrado');
+                return;
+            }
+            
+            // Verificar si ya existe
+            const existe = productosSeleccionados.findIndex(p => p.producto === productoId);
+            if (existe !== -1) {
+                productosSeleccionados[existe].cantidad += cantidad;
+            } else {
+                productosSeleccionados.push({
+                    producto: productoId,
+                    cantidad,
+                    precioUnitario,
+                    nombre: producto.nombre
+                });
+            }
+            
+            actualizarListaProductos();
+            
+            // Limpiar campos
+            document.getElementById('productoSelect').value = '';
+            document.getElementById('cantidad').value = '1';
+            document.getElementById('precioUnitario').value = '';
+        }
+        
+        function actualizarListaProductos() {
+            const container = document.getElementById('productosOrden');
+            const total = productosSeleccionados.reduce((sum, p) => sum + (p.cantidad * p.precioUnitario), 0);
+            
+            if (productosSeleccionados.length === 0) {
+                container.innerHTML = '';
+                document.getElementById('totalOrden').textContent = '$0';
+                return;
+            }
+            
+            container.innerHTML = `
+                <div style="background: var(--light); padding: 16px; border-radius: 8px;">
+                    <h4 style="margin-bottom: 12px;">Productos en la orden:</h4>
+                    <table style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Producto</th>
+                                <th style="text-align: center;">Cant.</th>
+                                <th style="text-align: right;">Precio Unit.</th>
+                                <th style="text-align: right;">Subtotal</th>
+                                <th style="text-align: center;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${productosSeleccionados.map((p, i) => `
+                                <tr>
+                                    <td><strong>${p.nombre}</strong></td>
+                                    <td style="text-align: center;">${p.cantidad}</td>
+                                    <td style="text-align: right;">${Utils.formatCurrency(p.precioUnitario)}</td>
+                                    <td style="text-align: right;"><strong>${Utils.formatCurrency(p.cantidad * p.precioUnitario)}</strong></td>
+                                    <td style="text-align: center;">
+                                        <button type="button" onclick="eliminarProducto(${i})" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">🗑️</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            document.getElementById('totalOrden').textContent = Utils.formatCurrency(total);
+        }
+        
+        function eliminarProducto(index) {
+            productosSeleccionados.splice(index, 1);
+            actualizarListaProductos();
+        }
+        
+        async function crearOrden(e) {
+            e.preventDefault();
+            
+            const proveedorId = document.getElementById('proveedor').value;
+            
+            if (!proveedorId) {
+                alert('❌ Seleccione un proveedor');
+                return;
+            }
+            
+            if (productosSeleccionados.length === 0) {
+                alert('❌ Agregue al menos un producto a la orden');
+                return;
+            }
+            
+            const data = {
+                proveedor: proveedorId,
+                productos: productosSeleccionados.map(p => ({
+                    producto: p.producto,
+                    cantidad: p.cantidad,
+                    precioUnitario: p.precioUnitario
+                })),
+                observaciones: document.getElementById('observaciones').value.trim()
+            };
+            
+            const btnCrear = document.getElementById('btnCrearOrden');
+            const btnTextOriginal = btnCrear.innerHTML;
+            btnCrear.disabled = true;
+            btnCrear.innerHTML = '<span class="loading"></span> Creando...';
+            
+            try {
+                const result = await API.post('/compras/ordenes', data);
+                
+                const proveedor = proveedores.find(p => p._id === proveedorId);
+                alert(`✅ Orden de compra creada exitosamente!\n\nProveedor: ${proveedor?.nombre}\nTotal: ${Utils.formatCurrency(result.orden.total)}\nProductos: ${productosSeleccionados.length} items`);
+                
+                // Limpiar formulario
+                document.getElementById('ordenForm').reset();
+                productosSeleccionados = [];
+                actualizarListaProductos();
+                
+                // Recargar órdenes
+                await cargarOrdenes();
+                
+            } catch (error) {
+                Utils.showError(error);
+            } finally {
+                btnCrear.disabled = false;
+                btnCrear.innerHTML = btnTextOriginal;
+            }
+        }
+        
+        async function cargarOrdenes() {
+            try {
+                const estado = document.getElementById('filtroEstado').value;
+                const url = estado ? `/compras/ordenes?estado=${estado}` : '/compras/ordenes';
+                
+                const data = await API.get(url);
+                const ordenes = data.ordenes || [];
+                
+                const container = document.getElementById('ordenesTable');
+                if (ordenes.length === 0) {
+                    container.innerHTML = '<p class="text-center" style="color: var(--text-light);">No hay órdenes registradas</p>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Proveedor</th>
+                                <th>Productos</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${ordenes.map(o => `
+                                <tr>
+                                    <td>${Utils.formatDate(o.createdAt)}</td>
+                                    <td><strong>${o.proveedor?.nombre || 'N/A'}</strong></td>
+                                    <td>${o.productos.length} items</td>
+                                    <td><strong>${Utils.formatCurrency(o.total)}</strong></td>
+                                    <td>
+                                        <span class="badge badge-${getBadgeColor(o.estado)}">
+                                            ${getEstadoIcon(o.estado)} ${o.estado}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-info" style="padding: 6px 12px; font-size: 13px;" onclick='verDetalle(${JSON.stringify(o)})'>
+                                            👁️ Ver
+                                        </button>
+                                        ${o.estado !== 'Recibida' && o.estado !== 'Cancelada' ? `
+                                            <button class="btn btn-warning" style="padding: 6px 12px; font-size: 13px;" onclick='cambiarEstado("${o._id}", "${o.proveedor?.nombre}", ${o.productos.length}, "${o.estado}")'>
+                                                ✏️ Estado
+                                            </button>
+                                        ` : ''}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+        
+        function getBadgeColor(estado) {
+            const colors = {
+                'Pendiente': 'warning',
+                'Procesada': 'info',
+                'Recibida': 'success',
+                'Cancelada': 'danger'
+            };
+            return colors[estado] || 'secondary';
+        }
+        
+        function getEstadoIcon(estado) {
+            const icons = {
+                'Pendiente': '⏳',
+                'Procesada': '📦',
+                'Recibida': '✅',
+                'Cancelada': '❌'
+            };
+            return icons[estado] || '📋';
+        }
+        
+        function verDetalle(orden) {
+            const container = document.getElementById('detalleOrden');
+            container.innerHTML = `
+                <div style="background: var(--light); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <p style="margin: 8px 0;"><strong>Proveedor:</strong> ${orden.proveedor?.nombre || 'N/A'}</p>
+                            <p style="margin: 8px 0;"><strong>Teléfono:</strong> ${orden.proveedor?.telefono || 'N/A'}</p>
+                            <p style="margin: 8px 0;"><strong>Fecha:</strong> ${Utils.formatDate(orden.createdAt)}</p>
+                        </div>
+                        <div>
+                            <p style="margin: 8px 0;"><strong>Estado:</strong> 
+                                <span class="badge badge-${getBadgeColor(orden.estado)}">
+                                    ${getEstadoIcon(orden.estado)} ${orden.estado}
+                                </span>
+                            </p>
+                            <p style="margin: 8px 0;"><strong>Usuario:</strong> ${orden.usuario?.nombre || 'N/A'}</p>
+                            <p style="margin: 8px 0; font-size: 18px;"><strong>Total:</strong> <span style="color: var(--primary);">${Utils.formatCurrency(orden.total)}</span></p>
+                        </div>
+                    </div>
+                    ${orden.observaciones ? `
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                            <p style="margin: 0;"><strong>Observaciones:</strong></p>
+                            <p style="margin: 8px 0; color: var(--text-light);">${orden.observaciones}</p>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <h4>Productos (${orden.productos.length})</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th style="text-align: center;">Cantidad</th>
+                            <th style="text-align: right;">Precio Unit.</th>
+                            <th style="text-align: right;">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${orden.productos.map(p => `
+                            <tr>
+                                <td><strong>${p.producto?.nombre || 'Producto'}</strong></td>
+                                <td style="text-align: center;">${p.cantidad}</td>
+                                <td style="text-align: right;">${Utils.formatCurrency(p.precioUnitario || 0)}</td>
+                                <td style="text-align: right;"><strong>${Utils.formatCurrency((p.cantidad * (p.precioUnitario || 0)))}</strong></td>
+                            </tr>
+                        `).join('')}
+                        <tr style="border-top: 2px solid var(--border); font-weight: bold;">
+                            <td colspan="3" style="text-align: right;">TOTAL:</td>
+                            <td style="text-align: right; color: var(--primary); font-size: 18px;">${Utils.formatCurrency(orden.total)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('modalDetalle').style.display = 'flex';
+        }
+        
+        function cambiarEstado(ordenId, proveedor, cantidadProductos, estadoActual) {
+            document.getElementById('ordenIdEstado').value = ordenId;
+            
+            const infoDiv = document.getElementById('infoOrdenEstado');
+            infoDiv.innerHTML = `
+                <p><strong>Proveedor:</strong> ${proveedor}</p>
+                <p><strong>Productos:</strong> ${cantidadProductos} items</p>
+                <p><strong>Estado actual:</strong> 
+                    <span class="badge badge-${getBadgeColor(estadoActual)}">
+                        ${getEstadoIcon(estadoActual)} ${estadoActual}
+                    </span>
+                </p>
+            `;
+            
+            // Pre-seleccionar el siguiente estado lógico
+            const siguienteEstado = {
+                'Pendiente': 'Procesada',
+                'Procesada': 'Recibida'
+            };
+            document.getElementById('nuevoEstado').value = siguienteEstado[estadoActual] || '';
+            
+            document.getElementById('modalEstado').style.display = 'flex';
+        }
+        
+        async function actualizarEstado(e) {
+            e.preventDefault();
+            
+            const ordenId = document.getElementById('ordenIdEstado').value;
+            const nuevoEstado = document.getElementById('nuevoEstado').value;
+            
+            if (!nuevoEstado) {
+                alert('❌ Seleccione un estado');
+                return;
+            }
+            
+            try {
+                await API.put(`/compras/ordenes/${ordenId}`, { estado: nuevoEstado });
+                
+                alert(`✅ Estado actualizado a: ${nuevoEstado}`);
+                
+                cerrarModal('modalEstado');
+                await cargarOrdenes();
+                
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+        
+        function cerrarModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+    </script>
+</body>
+</html>

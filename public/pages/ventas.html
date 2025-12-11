@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ventas - Sistema de Gestión</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <main class="main-content">
+            <div class="page-header">
+                <h1>🛒 Ventas</h1>
+                <p>Gestión de ventas y transacciones</p>
+            </div>
+
+            <!-- Alerta si la caja está cerrada -->
+            <div id="alertaCaja" class="alert alert-warning" style="display: none;">
+                ⚠️ <strong>Caja Cerrada:</strong> Debes abrir la caja antes de realizar ventas. 
+                <a href="/pages/caja.html" class="btn btn-outline" style="padding: 4px 12px; margin-left: 12px;">Ir a Caja</a>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Nueva Venta</h3>
+                </div>
+                <div class="card-body">
+                    <form id="ventaForm">
+                        <div class="form-group">
+                            <label>Tipo de Venta</label>
+                            <select id="tipoVenta" onchange="toggleCliente()">
+                                <option value="Contado">Al Contado</option>
+                                <option value="Credito">A Crédito</option>
+                            </select>
+                        </div>
+                        <div id="clienteGroup" class="form-group" style="display:none;">
+                            <label>Cliente *</label>
+                            <select id="cliente">
+                                <option value="">Seleccione un cliente</option>
+                            </select>
+                        </div>
+                        
+                        <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border);">
+                        
+                        <h4>Agregar Productos</h4>
+                        <div class="form-group">
+                            <label>Producto</label>
+                            <select id="productoSelect">
+                                <option value="">Seleccione un producto</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Cantidad</label>
+                            <input type="number" id="cantidad" min="1" value="1">
+                        </div>
+                        <button type="button" class="btn btn-secondary" onclick="agregarProducto()">+ Agregar Producto</button>
+                        
+                        <div id="productosVenta" style="margin-top: 20px;"></div>
+                        
+                        <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border);">
+                        
+                        <div id="montoRecibidoGroup" class="form-group">
+                            <label>Monto Recibido *</label>
+                            <input type="number" id="montoRecibido" min="0" step="1">
+                        </div>
+                        
+                        <div style="margin: 20px 0; padding: 16px; background: var(--light); border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 18px; font-weight: 600;">TOTAL:</span>
+                                <span id="totalVenta" style="font-size: 24px; font-weight: 700; color: var(--primary);">$0</span>
+                            </div>
+                            <div id="vueltoDisplay" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span>Vuelto:</span>
+                                    <span id="vueltoVenta" style="font-size: 18px; font-weight: 600; color: var(--success);">$0</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-block" id="btnVenta">Realizar Venta</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header"><h3>Historial de Ventas (Hoy)</h3></div>
+                <div class="card-body" id="ventasTable">Cargando...</div>
+            </div>
+        </main>
+    </div>
+    <script src="/js/auth.js"></script>
+    <script src="/js/sidebar.js"></script>
+    <script>
+        let productos = [];
+        let clientes = [];
+        let productosSeleccionados = [];
+        let cajaAbierta = false;
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!Auth.requireAuth()) return;
+            
+            await verificarCaja();
+            await cargarDatos();
+            await cargarVentas();
+            
+            document.getElementById('ventaForm').addEventListener('submit', realizarVenta);
+            document.getElementById('montoRecibido').addEventListener('input', calcularVuelto);
+        });
+        
+        async function verificarCaja() {
+            try {
+                const response = await API.get('/caja/actual');
+                console.log('Caja actual:', response);
+                cajaAbierta = true;
+                document.getElementById('alertaCaja').style.display = 'none';
+            } catch (error) {
+                console.log('No hay caja abierta:', error);
+                cajaAbierta = false;
+                document.getElementById('alertaCaja').style.display = 'flex';
+            }
+        }
+        
+        async function cargarDatos() {
+            try {
+                const [prodData, cliData] = await Promise.all([
+                    API.get('/productos'),
+                    API.get('/clientes')
+                ]);
+                
+                productos = prodData.productos || [];
+                clientes = cliData.clientes || [];
+                
+                console.log('Productos cargados:', productos.length);
+                console.log('Clientes cargados:', clientes.length);
+                
+                const productoSelect = document.getElementById('productoSelect');
+                productoSelect.innerHTML = '<option value="">Seleccione un producto</option>' +
+                    productos.map(p => {
+                        const stockTotal = p.stockSala + p.stockBodega;
+                        return `<option value="${p._id}">${p.nombre} - ${Utils.formatCurrency(p.precioVenta)} (Stock: ${stockTotal})</option>`;
+                    }).join('');
+                    
+                const clienteSelect = document.getElementById('cliente');
+                clienteSelect.innerHTML = '<option value="">Seleccione un cliente</option>' +
+                    clientes.map(c => `<option value="${c._id}">${c.nombre}</option>`).join('');
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+                Utils.showError(error);
+            }
+        }
+        
+        function toggleCliente() {
+            const tipo = document.getElementById('tipoVenta').value;
+            document.getElementById('clienteGroup').style.display = tipo === 'Credito' ? 'block' : 'none';
+            document.getElementById('montoRecibidoGroup').style.display = tipo === 'Contado' ? 'block' : 'none';
+            calcularVuelto();
+        }
+        
+        function agregarProducto() {
+            const productoId = document.getElementById('productoSelect').value;
+            const cantidad = parseInt(document.getElementById('cantidad').value);
+            
+            if (!productoId) {
+                alert('Seleccione un producto');
+                return;
+            }
+            
+            if (!cantidad || cantidad <= 0) {
+                alert('Ingrese una cantidad válida');
+                return;
+            }
+            
+            const producto = productos.find(p => p._id === productoId);
+            if (!producto) {
+                alert('Producto no encontrado');
+                return;
+            }
+            
+            const stockTotal = producto.stockSala + producto.stockBodega;
+            if (cantidad > stockTotal) {
+                alert(`Stock insuficiente. Disponible: ${stockTotal} unidades`);
+                return;
+            }
+            
+            const existe = productosSeleccionados.findIndex(p => p.producto === productoId);
+            if (existe !== -1) {
+                productosSeleccionados[existe].cantidad += cantidad;
+            } else {
+                productosSeleccionados.push({ 
+                    producto: productoId, 
+                    cantidad, 
+                    precio: producto.precioVenta, 
+                    nombre: producto.nombre 
+                });
+            }
+            
+            console.log('Productos seleccionados:', productosSeleccionados);
+            actualizarListaProductos();
+            
+            document.getElementById('productoSelect').value = '';
+            document.getElementById('cantidad').value = '1';
+        }
+        
+        function actualizarListaProductos() {
+            const container = document.getElementById('productosVenta');
+            const total = productosSeleccionados.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
+            
+            if (productosSeleccionados.length === 0) {
+                container.innerHTML = '';
+                document.getElementById('totalVenta').textContent = '$0';
+                calcularVuelto();
+                return;
+            }
+            
+            container.innerHTML = `
+                <div style="background: var(--light); padding: 16px; border-radius: 8px;">
+                    <h4 style="margin-bottom: 12px;">Productos en la venta:</h4>
+                    <table style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Producto</th>
+                                <th style="text-align: center;">Cant.</th>
+                                <th style="text-align: right;">Precio Unit.</th>
+                                <th style="text-align: right;">Subtotal</th>
+                                <th style="text-align: center;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${productosSeleccionados.map((p, i) => `
+                                <tr>
+                                    <td><strong>${p.nombre}</strong></td>
+                                    <td style="text-align: center;">${p.cantidad}</td>
+                                    <td style="text-align: right;">${Utils.formatCurrency(p.precio)}</td>
+                                    <td style="text-align: right;"><strong>${Utils.formatCurrency(p.precio * p.cantidad)}</strong></td>
+                                    <td style="text-align: center;">
+                                        <button type="button" onclick="eliminarProducto(${i})" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">🗑️</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            document.getElementById('totalVenta').textContent = Utils.formatCurrency(total);
+            calcularVuelto();
+        }
+        
+        function eliminarProducto(index) {
+            productosSeleccionados.splice(index, 1);
+            actualizarListaProductos();
+        }
+        
+        function calcularVuelto() {
+            const tipoVenta = document.getElementById('tipoVenta').value;
+            const vueltoDisplay = document.getElementById('vueltoDisplay');
+            
+            if (tipoVenta !== 'Contado') {
+                vueltoDisplay.style.display = 'none';
+                return;
+            }
+            
+            const total = productosSeleccionados.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
+            const montoRecibido = parseFloat(document.getElementById('montoRecibido').value) || 0;
+            const vuelto = montoRecibido - total;
+            
+            if (montoRecibido > 0) {
+                vueltoDisplay.style.display = 'block';
+                document.getElementById('vueltoVenta').textContent = Utils.formatCurrency(vuelto);
+                
+                if (vuelto < 0) {
+                    document.getElementById('vueltoVenta').style.color = 'var(--danger)';
+                } else {
+                    document.getElementById('vueltoVenta').style.color = 'var(--success)';
+                }
+            } else {
+                vueltoDisplay.style.display = 'none';
+            }
+        }
+        
+        async function realizarVenta(e) {
+            e.preventDefault();
+            
+            console.log('=== INICIANDO VENTA ===');
+            
+            // Verificar caja
+            if (!cajaAbierta) {
+                alert('⚠️ Debes abrir la caja antes de realizar ventas');
+                window.location.href = '/pages/caja.html';
+                return;
+            }
+            
+            // Validar productos
+            if (productosSeleccionados.length === 0) {
+                alert('❌ Agregue al menos un producto a la venta');
+                return;
+            }
+            
+            const tipoVenta = document.getElementById('tipoVenta').value;
+            console.log('Tipo de venta:', tipoVenta);
+            
+            // Preparar datos base
+            const data = {
+                productos: productosSeleccionados.map(p => ({ 
+                    producto: p.producto, 
+                    cantidad: p.cantidad 
+                })),
+                tipoVenta: tipoVenta
+            };
+            
+            console.log('Productos a enviar:', data.productos);
+            
+            // Validar según tipo
+            if (tipoVenta === 'Credito') {
+                const clienteId = document.getElementById('cliente').value;
+                if (!clienteId) {
+                    alert('❌ Seleccione un cliente para la venta a crédito');
+                    return;
+                }
+                data.cliente = clienteId;
+                console.log('Cliente seleccionado:', clienteId);
+            } else {
+                const montoRecibido = parseFloat(document.getElementById('montoRecibido').value);
+                const total = productosSeleccionados.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
+                
+                console.log('Total venta:', total);
+                console.log('Monto recibido:', montoRecibido);
+                
+                if (!montoRecibido || montoRecibido <= 0) {
+                    alert('❌ Ingrese el monto recibido');
+                    return;
+                }
+                
+                if (montoRecibido < total) {
+                    alert(`❌ El monto recibido (${Utils.formatCurrency(montoRecibido)}) es menor al total (${Utils.formatCurrency(total)})`);
+                    return;
+                }
+                
+                data.montoRecibido = montoRecibido;
+            }
+            
+            // Log del request completo
+            console.log('=== DATOS A ENVIAR ===');
+            console.log(JSON.stringify(data, null, 2));
+            
+            // Deshabilitar botón
+            const btnVenta = document.getElementById('btnVenta');
+            const btnTextOriginal = btnVenta.innerHTML;
+            btnVenta.disabled = true;
+            btnVenta.innerHTML = '<span class="loading"></span> Procesando...';
+            
+            try {
+                console.log('Enviando petición POST a /api/ventas...');
+                
+                const result = await API.post('/ventas', data);
+                
+                console.log('=== RESPUESTA DEL SERVIDOR ===');
+                console.log(result);
+                
+                // Mostrar resultado
+                if (tipoVenta === 'Contado') {
+                    alert(`✅ Venta realizada exitosamente!\n\nTotal: ${Utils.formatCurrency(result.venta.total)}\nMonto recibido: ${Utils.formatCurrency(result.venta.montoRecibido)}\nVuelto: ${Utils.formatCurrency(result.venta.vuelto)}`);
+                } else {
+                    alert(`✅ Venta a crédito registrada exitosamente!\n\nTotal: ${Utils.formatCurrency(result.venta.total)}\nCliente: ${result.venta.cliente?.nombre || 'N/A'}`);
+                }
+                
+                // Limpiar formulario
+                productosSeleccionados = [];
+                document.getElementById('ventaForm').reset();
+                document.getElementById('tipoVenta').value = 'Contado';
+                toggleCliente();
+                actualizarListaProductos();
+                
+                // Recargar datos
+                await cargarVentas();
+                await cargarDatos();
+                
+            } catch (error) {
+                console.error('=== ERROR AL CREAR VENTA ===');
+                console.error('Tipo:', error.constructor.name);
+                console.error('Mensaje:', error.message);
+                console.error('Stack:', error.stack);
+                
+                // Mostrar error detallado
+                let errorMsg = '❌ Error al crear venta:\n\n';
+                errorMsg += error.message;
+                
+                if (error.message.includes('Debes abrir una caja')) {
+                    errorMsg += '\n\n👉 Ve a Caja y abre una caja antes de continuar.';
+                }
+                
+                alert(errorMsg);
+            } finally {
+                btnVenta.disabled = false;
+                btnVenta.innerHTML = btnTextOriginal;
+            }
+        }
+        
+        async function cargarVentas() {
+            try {
+                const hoy = new Date();
+                hoy.setHours(0, 0, 0, 0);
+                const mañana = new Date(hoy);
+                mañana.setDate(mañana.getDate() + 1);
+                
+                const data = await API.get(`/ventas?fechaInicio=${hoy.toISOString()}&fechaFin=${mañana.toISOString()}`);
+                const ventas = data.ventas || [];
+                
+                const container = document.getElementById('ventasTable');
+                if (ventas.length === 0) {
+                    container.innerHTML = '<p class="text-center" style="color: var(--text-light);">No hay ventas registradas hoy</p>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Tipo</th>
+                                <th>Cliente</th>
+                                <th>Productos</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${ventas.map(v => `
+                                <tr>
+                                    <td>${new Date(v.createdAt).toLocaleTimeString('es-CL')}</td>
+                                    <td><span class="badge badge-${v.tipoVenta === 'Contado' ? 'success' : 'warning'}">${v.tipoVenta}</span></td>
+                                    <td>${v.cliente?.nombre || '-'}</td>
+                                    <td>${v.productos.length} items</td>
+                                    <td><strong>${Utils.formatCurrency(v.total)}</strong></td>
+                                    <td><span class="badge badge-${v.estadoPago === 'Pagada' ? 'success' : 'danger'}">${v.estadoPago}</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Error cargando ventas:', error);
+            }
+        }
+    </script>
+</body>
+</html>

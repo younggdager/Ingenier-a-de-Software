@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Usuarios - Sistema de Gestión</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <main class="main-content">
+            <div class="page-header">
+                <h1>👤 Usuarios</h1>
+                <p>Gestión de usuarios del sistema (Solo Administradores)</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Lista de Usuarios</h3>
+                    <button class="btn btn-primary" onclick="nuevoUsuario()">+ Nuevo Usuario</button>
+                </div>
+                <div class="card-body" id="usuariosTable">Cargando...</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Usuario -->
+    <div id="modalUsuario" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Nuevo Usuario</h2>
+                <button class="modal-close" onclick="cerrarModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="usuarioForm">
+                    <input type="hidden" id="usuarioId">
+                    
+                    <div class="form-group">
+                        <label>Nombre Completo *</label>
+                        <input type="text" id="nombre" required placeholder="Ej: Juan Pérez">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Email *</label>
+                        <input type="email" id="email" required placeholder="Ej: juan@almacen.com">
+                    </div>
+                    
+                    <div class="form-group" id="passwordGroup">
+                        <label>Contraseña *</label>
+                        <input type="password" id="password" required minlength="6" placeholder="Mínimo 6 caracteres">
+                        <small style="color: var(--text-light); font-size: 12px;">
+                            La contraseña debe tener al menos 6 caracteres
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Rol *</label>
+                        <select id="rol" required>
+                            <option value="">Seleccione un rol</option>
+                            <option value="Administrador">Administrador</option>
+                            <option value="Vendedor">Vendedor</option>
+                        </select>
+                        <small style="color: var(--text-light); font-size: 12px;">
+                            <strong>Administrador:</strong> Acceso total al sistema<br>
+                            <strong>Vendedor:</strong> Acceso a ventas, productos y clientes
+                        </small>
+                    </div>
+                    
+                    <div class="form-group" id="activoGroup" style="display: none;">
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" id="activo" style="margin-right: 8px; width: 20px; height: 20px;">
+                            <span>Usuario activo</span>
+                        </label>
+                        <small style="color: var(--text-light); font-size: 12px;">
+                            Los usuarios inactivos no pueden iniciar sesión
+                        </small>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" onclick="cerrarModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardar">Crear Usuario</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/sidebar.js"></script>
+    <script>
+        let usuarioEditando = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!Auth.requireAuth()) return;
+            
+            // Verificar que sea administrador
+            const user = Auth.getUser();
+            if (user.rol !== 'Administrador') {
+                alert('⚠️ No tienes permisos para acceder a esta página');
+                window.location.href = '/pages/dashboard.html';
+                return;
+            }
+            
+            await cargarUsuarios();
+            document.getElementById('usuarioForm').addEventListener('submit', guardarUsuario);
+        });
+        
+        async function cargarUsuarios() {
+            try {
+                const data = await API.get('/usuarios');
+                const usuarios = data.usuarios || [];
+                
+                const currentUser = Auth.getUser();
+                
+                const container = document.getElementById('usuariosTable');
+                if (usuarios.length === 0) {
+                    container.innerHTML = '<p class="text-center">No hay usuarios registrados</p>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Rol</th>
+                                <th>Estado</th>
+                                <th>Fecha Registro</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${usuarios.map(u => `
+                                <tr>
+                                    <td>
+                                        <strong>${u.nombre}</strong>
+                                        ${u._id === currentUser.id ? '<span class="badge badge-info" style="margin-left: 8px;">Tú</span>' : ''}
+                                    </td>
+                                    <td>${u.email}</td>
+                                    <td>
+                                        <span class="badge ${u.rol === 'Administrador' ? 'badge-danger' : 'badge-primary'}">
+                                            ${u.rol === 'Administrador' ? '👑 ' : ''}${u.rol}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge ${u.activo ? 'badge-success' : 'badge-warning'}">
+                                            ${u.activo ? '✅ Activo' : '⛔ Inactivo'}
+                                        </span>
+                                    </td>
+                                    <td>${Utils.formatDate(u.createdAt)}</td>
+                                    <td>
+                                        <button class="btn btn-info" style="padding: 6px 12px; font-size: 13px;" 
+                                                onclick='editarUsuario(${JSON.stringify(u)})'>
+                                            ✏️ Editar
+                                        </button>
+                                        ${u._id !== currentUser.id ? `
+                                            <button class="btn ${u.activo ? 'btn-warning' : 'btn-success'}" 
+                                                    style="padding: 6px 12px; font-size: 13px;" 
+                                                    onclick="toggleEstado('${u._id}', ${u.activo})">
+                                                ${u.activo ? '⛔ Desactivar' : '✅ Activar'}
+                                            </button>
+                                        ` : ''}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+        
+        function nuevoUsuario() {
+            usuarioEditando = null;
+            document.getElementById('usuarioForm').reset();
+            document.getElementById('modalTitle').textContent = 'Nuevo Usuario';
+            document.getElementById('btnGuardar').textContent = 'Crear Usuario';
+            document.getElementById('usuarioId').value = '';
+            document.getElementById('passwordGroup').style.display = 'block';
+            document.getElementById('password').required = true;
+            document.getElementById('activoGroup').style.display = 'none';
+            document.getElementById('modalUsuario').style.display = 'flex';
+        }
+        
+        function editarUsuario(usuario) {
+            usuarioEditando = usuario;
+            document.getElementById('modalTitle').textContent = 'Editar Usuario';
+            document.getElementById('btnGuardar').textContent = 'Actualizar Usuario';
+            document.getElementById('usuarioId').value = usuario._id;
+            document.getElementById('nombre').value = usuario.nombre;
+            document.getElementById('email').value = usuario.email;
+            document.getElementById('rol').value = usuario.rol;
+            document.getElementById('activo').checked = usuario.activo;
+            
+            // Ocultar campo de contraseña en edición
+            document.getElementById('passwordGroup').style.display = 'none';
+            document.getElementById('password').required = false;
+            document.getElementById('password').value = '';
+            
+            // Mostrar campo de estado
+            document.getElementById('activoGroup').style.display = 'block';
+            
+            document.getElementById('modalUsuario').style.display = 'flex';
+        }
+        
+        function cerrarModal() {
+            document.getElementById('modalUsuario').style.display = 'none';
+            usuarioEditando = null;
+        }
+        
+        async function guardarUsuario(e) {
+            e.preventDefault();
+            
+            const usuarioId = document.getElementById('usuarioId').value;
+            const isEditing = !!usuarioId;
+            
+            const data = {
+                nombre: document.getElementById('nombre').value.trim(),
+                email: document.getElementById('email').value.trim().toLowerCase(),
+                rol: document.getElementById('rol').value
+            };
+            
+            // Solo incluir contraseña si es nuevo usuario
+            if (!isEditing) {
+                const password = document.getElementById('password').value;
+                if (password.length < 6) {
+                    alert('❌ La contraseña debe tener al menos 6 caracteres');
+                    return;
+                }
+                data.password = password;
+            } else {
+                // Incluir estado activo solo en edición
+                data.activo = document.getElementById('activo').checked;
+            }
+            
+            try {
+                if (isEditing) {
+                    await API.put(`/usuarios/${usuarioId}`, data);
+                    Utils.showAlert('Usuario actualizado exitosamente');
+                } else {
+                    await API.post('/usuarios', data);
+                    Utils.showAlert('Usuario creado exitosamente');
+                }
+                
+                cerrarModal();
+                await cargarUsuarios();
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+        
+        async function toggleEstado(usuarioId, estadoActual) {
+            const accion = estadoActual ? 'desactivar' : 'activar';
+            const confirmacion = confirm(`¿Estás seguro de ${accion} este usuario?\n\n${estadoActual ? '⚠️ El usuario no podrá iniciar sesión hasta que sea activado nuevamente.' : '✅ El usuario podrá iniciar sesión al sistema.'}`);
+            
+            if (!confirmacion) return;
+            
+            try {
+                await API.put(`/usuarios/${usuarioId}`, { activo: !estadoActual });
+                Utils.showAlert(`Usuario ${accion === 'desactivar' ? 'desactivado' : 'activado'} exitosamente`);
+                await cargarUsuarios();
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+    </script>
+</body>
+</html>

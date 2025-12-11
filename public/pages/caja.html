@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caja - Sistema de Gestión</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <main class="main-content">
+            <div class="page-header">
+                <h1>💰 Gestión de Caja</h1>
+                <p>Administra la caja del día</p>
+            </div>
+
+            <div id="cajaAbierta" style="display: none;">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Monto Inicial</div>
+                        <div class="stat-value" id="montoInicial">$0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Fecha Apertura</div>
+                        <div class="stat-value" style="font-size: 16px;" id="fechaApertura">-</div>
+                    </div>
+                </div>
+                <button class="btn btn-danger" onclick="cerrarCaja()">Cerrar Caja</button>
+            </div>
+
+            <div id="cajaCerrada" style="display: none;">
+                <div class="card">
+                    <div class="card-header"><h3>Abrir Caja</h3></div>
+                    <div class="card-body">
+                        <form id="abrirCajaForm">
+                            <div class="form-group">
+                                <label>Monto Inicial (Fondo)</label>
+                                <input type="number" id="montoInicialInput" required min="0" value="50000">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Abrir Caja</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="/js/auth.js"></script>
+    <script src="/js/sidebar.js"></script>
+    <script>
+        let cajaActual = null;
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!Auth.requireAuth()) return;
+            await verificarCaja();
+            
+            document.getElementById('abrirCajaForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const monto = parseFloat(document.getElementById('montoInicialInput').value);
+                try {
+                    await API.post('/caja/abrir', { montoInicial: monto });
+                    Utils.showAlert('Caja abierta exitosamente');
+                    await verificarCaja();
+                } catch (error) {
+                    Utils.showError(error);
+                }
+            });
+        });
+        
+        async function verificarCaja() {
+            try {
+                cajaActual = await API.get('/caja/actual');
+                document.getElementById('cajaAbierta').style.display = 'block';
+                document.getElementById('cajaCerrada').style.display = 'none';
+                document.getElementById('montoInicial').textContent = Utils.formatCurrency(cajaActual.caja.montoInicial);
+                document.getElementById('fechaApertura').textContent = Utils.formatDateTime(cajaActual.caja.fechaApertura);
+            } catch (error) {
+                document.getElementById('cajaAbierta').style.display = 'none';
+                document.getElementById('cajaCerrada').style.display = 'block';
+            }
+        }
+        
+        async function cerrarCaja() {
+            const montoFinal = prompt('Ingrese el monto final en caja:');
+            if (!montoFinal) return;
+            
+            try {
+                await API.put(`/caja/cerrar/${cajaActual.caja._id}`, { montoFinal: parseFloat(montoFinal) });
+                Utils.showAlert('Caja cerrada exitosamente');
+                await verificarCaja();
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+    </script>
+</body>
+</html>

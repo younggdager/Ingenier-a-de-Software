@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportes - Sistema de Gestión</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <main class="main-content">
+            <div class="page-header">
+                <h1>📊 Reportes</h1>
+                <p>Análisis y reportes del negocio</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Productos Más Vendidos</h3>
+                    <button class="btn btn-primary mt-4" onclick="verReporte('mas')">Ver Reporte</button>
+                </div>
+                <div class="stat-card">
+                    <h3>Productos Menos Vendidos</h3>
+                    <button class="btn btn-warning mt-4" onclick="verReporte('menos')">Ver Reporte</button>
+                </div>
+                <div class="stat-card">
+                    <h3>Ganancia Real</h3>
+                    <button class="btn btn-success mt-4" onclick="verGanancia()">Ver Ganancia</button>
+                </div>
+                <div class="stat-card">
+                    <h3>Exportar a Excel</h3>
+                    <button class="btn btn-info mt-4" onclick="exportarExcel()">Descargar</button>
+                </div>
+            </div>
+
+            <div class="card" id="reporteContainer" style="display: none;">
+                <div class="card-header">
+                    <h3 id="reporteTitulo">Reporte</h3>
+                </div>
+                <div class="card-body" id="reporteContenido"></div>
+            </div>
+        </main>
+    </div>
+    <script src="/js/auth.js"></script>
+    <script src="/js/sidebar.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!Auth.requireAuth()) return;
+        });
+        
+        async function verReporte(tipo) {
+            try {
+                const hoy = new Date();
+                const hace30dias = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
+                
+                const data = await API.get(`/reportes/productos-vendidos?tipo=${tipo}&fechaInicio=${hace30dias.toISOString()}&fechaFin=${hoy.toISOString()}`);
+                
+                document.getElementById('reporteTitulo').textContent = `Productos ${tipo === 'mas' ? 'Más' : 'Menos'} Vendidos (Últimos 30 días)`;
+                document.getElementById('reporteContenido').innerHTML = `
+                    <table>
+                        <thead>
+                            <tr><th>Producto</th><th>Cantidad Vendida</th><th>Total Ingresos</th></tr>
+                        </thead>
+                        <tbody>
+                            ${(data.productos || []).map(p => `
+                                <tr>
+                                    <td><strong>${p.producto.nombre}</strong></td>
+                                    <td>${p.cantidadVendida}</td>
+                                    <td>${Utils.formatCurrency(p.totalIngresos)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.getElementById('reporteContainer').style.display = 'block';
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+        
+        async function verGanancia() {
+            try {
+                const hoy = new Date();
+                const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+                
+                const data = await API.get(`/reportes/ganancia-real?fechaInicio=${inicioMes.toISOString()}&fechaFin=${hoy.toISOString()}`);
+                
+                document.getElementById('reporteTitulo').textContent = 'Ganancia Real del Mes';
+                document.getElementById('reporteContenido').innerHTML = `
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Ventas</div>
+                            <div class="stat-value">${Utils.formatCurrency(data.totalVentas)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Costos</div>
+                            <div class="stat-value">${Utils.formatCurrency(data.totalCostos)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Ganancia Neta</div>
+                            <div class="stat-value" style="color: var(--success);">${Utils.formatCurrency(data.gananciaNeta)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Margen de Ganancia</div>
+                            <div class="stat-value">${data.margenGanancia}</div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('reporteContainer').style.display = 'block';
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+        
+        async function exportarExcel() {
+            try {
+                const hoy = new Date();
+                const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+                
+                const url = `http://localhost:3000/api/reportes/exportar-contable?fechaInicio=${inicioMes.toISOString()}&fechaFin=${hoy.toISOString()}`;
+                const token = Auth.getToken();
+                
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) throw new Error('Error al exportar');
+                
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `reporte_contable_${Date.now()}.xlsx`;
+                a.click();
+                
+                Utils.showAlert('Archivo descargado exitosamente');
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+    </script>
+</body>
+</html>

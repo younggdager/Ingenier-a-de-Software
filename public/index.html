@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistema de Gestión de Almacén</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo">
+                    <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+                        <rect width="60" height="60" rx="12" fill="#4F46E5"/>
+                        <path d="M20 25L30 20L40 25V40L30 45L20 40V25Z" stroke="white" stroke-width="2" fill="none"/>
+                        <path d="M30 20V45" stroke="white" stroke-width="2"/>
+                        <path d="M20 25L40 35" stroke="white" stroke-width="2"/>
+                        <path d="M40 25L20 35" stroke="white" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h1>Sistema de Gestión</h1>
+                <p>Almacén & Tienda</p>
+            </div>
+
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        required 
+                        placeholder="admin@almacen.com"
+                        autocomplete="email"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Contraseña</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required 
+                        placeholder="••••••••"
+                        autocomplete="current-password"
+                    >
+                </div>
+
+                <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+                <button type="submit" class="btn btn-primary btn-block" id="loginBtn">
+                    Iniciar Sesión
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <div class="credentials-info">
+                    <strong>Credenciales de prueba:</strong><br>
+                    <small>Admin: admin@almacen.com / admin123</small><br>
+                    <small>Vendedor: vendedor@almacen.com / vendedor123</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/login.js"></script>
+</body>
+</html>

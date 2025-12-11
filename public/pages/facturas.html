@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facturas - Sistema de Gestión</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <main class="main-content">
+            <div class="page-header">
+                <h1>📄 Facturas de Compra</h1>
+                <p>Registro y gestión de facturas de proveedores</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Nueva Factura</h3>
+                </div>
+                <div class="card-body">
+                    <form id="facturaForm">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div class="form-group">
+                                <label>N° Factura *</label>
+                                <input type="text" id="numeroFactura" required placeholder="Ej: F-00001">
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha Factura *</label>
+                                <input type="date" id="fechaFactura" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Proveedor *</label>
+                            <select id="proveedor" required>
+                                <option value="">Seleccione un proveedor</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Orden de Compra (Opcional)</label>
+                            <select id="ordenCompra">
+                                <option value="">Sin orden de compra</option>
+                            </select>
+                        </div>
+
+                        <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border);">
+                        
+                        <h4>Productos en la Factura</h4>
+                        <div class="form-group">
+                            <label>Producto</label>
+                            <select id="productoSelect">
+                                <option value="">Seleccione un producto</option>
+                            </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="form-group">
+                                <label>Cantidad</label>
+                                <input type="number" id="cantidad" min="1" value="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Precio Unitario</label>
+                                <input type="number" id="precioUnitario" min="0" step="1">
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-secondary" onclick="agregarProducto()">+ Agregar Producto</button>
+                        
+                        <div id="productosFactura" style="margin-top: 20px;"></div>
+                        
+                        <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border);">
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div class="form-group">
+                                <label>Impuestos (IVA 19%)</label>
+                                <input type="number" id="impuestos" readonly style="background: #f5f5f5; cursor: not-allowed;" value="0" placeholder="Calculado automáticamente">
+                                <small style="color: var(--text-light);">Se calcula automáticamente como 19% del subtotal</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Método de Pago</label>
+                                <select id="metodoPago">
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="Transferencia">Transferencia</option>
+                                    <option value="Cheque">Cheque</option>
+                                    <option value="Credito">Crédito</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Observaciones</label>
+                            <textarea id="observaciones" rows="2" placeholder="Notas adicionales..."></textarea>
+                        </div>
+                        
+                        <div style="margin: 20px 0; padding: 16px; background: var(--light); border-radius: 8px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; text-align: center;">
+                                <div>
+                                    <p style="margin: 0; color: var(--text-light); font-size: 13px;">Subtotal</p>
+                                    <p id="subtotalFactura" style="margin: 4px 0 0 0; font-size: 18px; font-weight: 600;">$0</p>
+                                </div>
+                                <div>
+                                    <p style="margin: 0; color: var(--text-light); font-size: 13px;">IVA (19%)</p>
+                                    <p id="ivaFactura" style="margin: 4px 0 0 0; font-size: 18px; font-weight: 600;">$0</p>
+                                </div>
+                                <div style="background: white; padding: 8px; border-radius: 6px;">
+                                    <p style="margin: 0; color: var(--text-light); font-size: 13px;">TOTAL</p>
+                                    <p id="totalFactura" style="margin: 4px 0 0 0; font-size: 24px; font-weight: 700; color: var(--primary);">$0</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info" style="margin: 16px 0;">
+                            <strong>📦 Actualización Automática:</strong><br>
+                            • El IVA se calcula automáticamente como <strong>19%</strong> del subtotal<br>
+                            • Al registrar esta factura, el stock se actualizará automáticamente en bodega
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-block" id="btnCrearFactura">Registrar Factura</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h3>Facturas Registradas</h3>
+                    <select id="filtroEstado" onchange="cargarFacturas()" style="padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;">
+                        <option value="">Todos los estados</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Pagada">Pagada</option>
+                        <option value="Vencida">Vencida</option>
+                    </select>
+                </div>
+                <div class="card-body" id="facturasTable">Cargando...</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Ver Detalle -->
+    <div id="modalDetalle" class="modal-overlay" style="display: none;">
+        <div class="modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>📄 Detalle de Factura</h2>
+                <button class="modal-close" onclick="cerrarModal('modalDetalle')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="detalleFactura"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/sidebar.js"></script>
+    <script>
+        let productos = [];
+        let proveedores = [];
+        let ordenes = [];
+        let productosSeleccionados = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!Auth.requireAuth()) return;
+            
+            // Establecer fecha de hoy por defecto
+            document.getElementById('fechaFactura').valueAsDate = new Date();
+            
+            await cargarDatos();
+            await cargarFacturas();
+            
+            document.getElementById('facturaForm').addEventListener('submit', crearFactura);
+        });
+        
+        async function cargarDatos() {
+            try {
+                const [prodData, provData, ordData] = await Promise.all([
+                    API.get('/productos'),
+                    API.get('/proveedores'),
+                    API.get('/compras/ordenes?estado=Recibida')
+                ]);
+                
+                productos = prodData.productos || [];
+                proveedores = provData.proveedores || [];
+                ordenes = ordData.ordenes || [];
+                
+                // Cargar proveedores
+                const proveedorSelect = document.getElementById('proveedor');
+                proveedorSelect.innerHTML = '<option value="">Seleccione un proveedor</option>' +
+                    proveedores.map(p => `<option value="${p._id}">${p.nombre}</option>`).join('');
+                
+                // Cargar productos
+                const productoSelect = document.getElementById('productoSelect');
+                productoSelect.innerHTML = '<option value="">Seleccione un producto</option>' +
+                    productos.map(p => `<option value="${p._id}">${p.nombre}</option>`).join('');
+                
+                // Cargar órdenes recibidas
+                const ordenSelect = document.getElementById('ordenCompra');
+                ordenSelect.innerHTML = '<option value="">Sin orden de compra</option>' +
+                    ordenes.map(o => `<option value="${o._id}">Orden ${o._id.slice(-6)} - ${o.proveedor?.nombre} - ${Utils.formatCurrency(o.total)}</option>`).join('');
+                    
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+        
+        function agregarProducto() {
+            const productoId = document.getElementById('productoSelect').value;
+            const cantidad = parseInt(document.getElementById('cantidad').value);
+            const precioUnitario = parseFloat(document.getElementById('precioUnitario').value);
+            
+            if (!productoId) {
+                alert('❌ Seleccione un producto');
+                return;
+            }
+            
+            if (!cantidad || cantidad <= 0) {
+                alert('❌ Ingrese una cantidad válida');
+                return;
+            }
+            
+            if (!precioUnitario || precioUnitario < 0) {
+                alert('❌ Ingrese un precio unitario válido');
+                return;
+            }
+            
+            const producto = productos.find(p => p._id === productoId);
+            if (!producto) {
+                alert('❌ Producto no encontrado');
+                return;
+            }
+            
+            productosSeleccionados.push({
+                producto: productoId,
+                cantidad,
+                precioUnitario,
+                nombre: producto.nombre,
+                subtotal: cantidad * precioUnitario
+            });
+            
+            actualizarListaProductos();
+            
+            // Limpiar campos
+            document.getElementById('productoSelect').value = '';
+            document.getElementById('cantidad').value = '1';
+            document.getElementById('precioUnitario').value = '';
+        }
+        
+        function actualizarListaProductos() {
+            const container = document.getElementById('productosFactura');
+            
+            if (productosSeleccionados.length === 0) {
+                container.innerHTML = '';
+                calcularTotales();
+                return;
+            }
+            
+            container.innerHTML = `
+                <div style="background: var(--light); padding: 16px; border-radius: 8px;">
+                    <h4 style="margin-bottom: 12px;">Productos en la factura:</h4>
+                    <table style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Producto</th>
+                                <th style="text-align: center;">Cant.</th>
+                                <th style="text-align: right;">Precio Unit.</th>
+                                <th style="text-align: right;">Subtotal</th>
+                                <th style="text-align: center;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${productosSeleccionados.map((p, i) => `
+                                <tr>
+                                    <td><strong>${p.nombre}</strong></td>
+                                    <td style="text-align: center;">${p.cantidad}</td>
+                                    <td style="text-align: right;">${Utils.formatCurrency(p.precioUnitario)}</td>
+                                    <td style="text-align: right;"><strong>${Utils.formatCurrency(p.subtotal)}</strong></td>
+                                    <td style="text-align: center;">
+                                        <button type="button" onclick="eliminarProducto(${i})" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">🗑️</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            calcularTotales();
+        }
+        
+        function eliminarProducto(index) {
+            productosSeleccionados.splice(index, 1);
+            actualizarListaProductos();
+        }
+        
+        function calcularTotales() {
+            const subtotal = productosSeleccionados.reduce((sum, p) => sum + p.subtotal, 0);
+            
+            // Calcular IVA automáticamente al 19% del subtotal
+            const impuestos = Math.round(subtotal * 0.19);
+            
+            const total = subtotal + impuestos;
+            
+            // Actualizar campo de impuestos
+            document.getElementById('impuestos').value = impuestos;
+            
+            document.getElementById('subtotalFactura').textContent = Utils.formatCurrency(subtotal);
+            document.getElementById('ivaFactura').textContent = Utils.formatCurrency(impuestos);
+            document.getElementById('totalFactura').textContent = Utils.formatCurrency(total);
+        }
+        
+        async function crearFactura(e) {
+            e.preventDefault();
+            
+            if (productosSeleccionados.length === 0) {
+                alert('❌ Agregue al menos un producto a la factura');
+                return;
+            }
+            
+            const data = {
+                numeroFactura: document.getElementById('numeroFactura').value.trim(),
+                proveedor: document.getElementById('proveedor').value,
+                fechaFactura: document.getElementById('fechaFactura').value,
+                productos: productosSeleccionados.map(p => ({
+                    producto: p.producto,
+                    cantidad: p.cantidad,
+                    precioUnitario: p.precioUnitario
+                })),
+                metodoPago: document.getElementById('metodoPago').value,
+                observaciones: document.getElementById('observaciones').value.trim()
+                // Los impuestos se calculan automáticamente en el backend al 19%
+            };
+            
+            const ordenId = document.getElementById('ordenCompra').value;
+            if (ordenId) {
+                data.ordenCompra = ordenId;
+            }
+            
+            const btnCrear = document.getElementById('btnCrearFactura');
+            const btnTextOriginal = btnCrear.innerHTML;
+            btnCrear.disabled = true;
+            btnCrear.innerHTML = '<span class="loading"></span> Registrando...';
+            
+            try {
+                const result = await API.post('/compras/facturas', data);
+                
+                alert(`✅ Factura registrada exitosamente!\n\nN° Factura: ${result.factura.numeroFactura}\nTotal: ${Utils.formatCurrency(result.factura.total)}\n\n📦 Stock actualizado en bodega`);
+                
+                // Limpiar formulario
+                document.getElementById('facturaForm').reset();
+                document.getElementById('fechaFactura').valueAsDate = new Date();
+                productosSeleccionados = [];
+                actualizarListaProductos();
+                
+                // Recargar facturas
+                await cargarFacturas();
+                
+            } catch (error) {
+                Utils.showError(error);
+            } finally {
+                btnCrear.disabled = false;
+                btnCrear.innerHTML = btnTextOriginal;
+            }
+        }
+        
+        async function cargarFacturas() {
+            try {
+                const estado = document.getElementById('filtroEstado').value;
+                const url = estado ? `/compras/facturas?estadoPago=${estado}` : '/compras/facturas';
+                
+                const data = await API.get(url);
+                const facturas = data.facturas || [];
+                
+                const container = document.getElementById('facturasTable');
+                if (facturas.length === 0) {
+                    container.innerHTML = '<p class="text-center" style="color: var(--text-light);">No hay facturas registradas</p>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>N° Factura</th>
+                                <th>Fecha</th>
+                                <th>Proveedor</th>
+                                <th>Total</th>
+                                <th>Método Pago</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${facturas.map(f => `
+                                <tr>
+                                    <td><strong>${f.numeroFactura}</strong></td>
+                                    <td>${Utils.formatDate(f.fechaFactura)}</td>
+                                    <td>${f.proveedor?.nombre || 'N/A'}</td>
+                                    <td><strong>${Utils.formatCurrency(f.total)}</strong></td>
+                                    <td>${f.metodoPago}</td>
+                                    <td>
+                                        <span class="badge badge-${getBadgeColor(f.estadoPago)}">
+                                            ${f.estadoPago}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-info" style="padding: 6px 12px; font-size: 13px;" onclick='verDetalle("${f._id}")'>
+                                            👁️ Ver
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+        
+        function getBadgeColor(estado) {
+            const colors = {
+                'Pendiente': 'warning',
+                'Pagada': 'success',
+                'Vencida': 'danger'
+            };
+            return colors[estado] || 'secondary';
+        }
+        
+        async function verDetalle(facturaId) {
+            try {
+                const data = await API.get(`/compras/facturas/${facturaId}`);
+                const f = data.factura;
+                
+                const container = document.getElementById('detalleFactura');
+                container.innerHTML = `
+                    <div style="background: var(--light); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div>
+                                <p style="margin: 8px 0;"><strong>N° Factura:</strong> ${f.numeroFactura}</p>
+                                <p style="margin: 8px 0;"><strong>Proveedor:</strong> ${f.proveedor?.nombre || 'N/A'}</p>
+                                <p style="margin: 8px 0;"><strong>Fecha:</strong> ${Utils.formatDate(f.fechaFactura)}</p>
+                                <p style="margin: 8px 0;"><strong>Usuario:</strong> ${f.usuario?.nombre || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <p style="margin: 8px 0;"><strong>Método de Pago:</strong> ${f.metodoPago}</p>
+                                <p style="margin: 8px 0;"><strong>Estado:</strong> 
+                                    <span class="badge badge-${getBadgeColor(f.estadoPago)}">${f.estadoPago}</span>
+                                </p>
+                                <p style="margin: 8px 0; font-size: 18px;"><strong>Total:</strong> <span style="color: var(--primary);">${Utils.formatCurrency(f.total)}</span></p>
+                            </div>
+                        </div>
+                        ${f.observaciones ? `
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                                <p style="margin: 0;"><strong>Observaciones:</strong></p>
+                                <p style="margin: 8px 0; color: var(--text-light);">${f.observaciones}</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <h4>Productos (${f.productos.length})</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th style="text-align: center;">Cantidad</th>
+                                <th style="text-align: right;">Precio Unit.</th>
+                                <th style="text-align: right;">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${f.productos.map(p => `
+                                <tr>
+                                    <td><strong>${p.producto?.nombre || p.descripcion || 'Producto'}</strong></td>
+                                    <td style="text-align: center;">${p.cantidad}</td>
+                                    <td style="text-align: right;">${Utils.formatCurrency(p.precioUnitario)}</td>
+                                    <td style="text-align: right;"><strong>${Utils.formatCurrency(p.subtotal)}</strong></td>
+                                </tr>
+                            `).join('')}
+                            <tr style="border-top: 2px solid var(--border);">
+                                <td colspan="3" style="text-align: right;"><strong>Subtotal:</strong></td>
+                                <td style="text-align: right; font-weight: bold;">${Utils.formatCurrency(f.subtotal)}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" style="text-align: right;"><strong>IVA (19%):</strong></td>
+                                <td style="text-align: right; font-weight: bold;">${Utils.formatCurrency(f.impuestos)}</td>
+                            </tr>
+                            <tr style="background: var(--light);">
+                                <td colspan="3" style="text-align: right; font-size: 18px;"><strong>TOTAL:</strong></td>
+                                <td style="text-align: right; color: var(--primary); font-size: 18px; font-weight: bold;">${Utils.formatCurrency(f.total)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+                
+                document.getElementById('modalDetalle').style.display = 'flex';
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+        
+        function cerrarModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+    </script>
+</body>
+</html>

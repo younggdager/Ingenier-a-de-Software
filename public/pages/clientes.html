@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clientes - Sistema de Gestión</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <main class="main-content">
+            <div class="page-header">
+                <h1>👥 Clientes</h1>
+                <p>Gestión de clientes y créditos</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Lista de Clientes</h3>
+                    <button class="btn btn-primary" onclick="nuevoCliente()">+ Nuevo Cliente</button>
+                </div>
+                <div class="card-body" id="clientesTable">Cargando...</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Cliente -->
+    <div id="modalCliente" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Nuevo Cliente</h2>
+                <button class="modal-close" onclick="cerrarModal('modalCliente')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="clienteForm">
+                    <div class="form-group">
+                        <label>Nombre *</label>
+                        <input type="text" id="nombre" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <input type="tel" id="telefono">
+                    </div>
+                    <div class="form-group">
+                        <label>Dirección</label>
+                        <input type="text" id="direccion">
+                    </div>
+                    <div class="form-group">
+                        <label>Límite de Crédito</label>
+                        <input type="number" id="limiteCredito" value="100000" min="0">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" onclick="cerrarModal('modalCliente')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Deuda -->
+    <div id="modalDeuda" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>💰 Deuda del Cliente</h2>
+                <button class="modal-close" onclick="cerrarModal('modalDeuda')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="deudaInfo"></div>
+                <div id="ventasPendientes" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Abono -->
+    <div id="modalAbono" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>💵 Registrar Abono</h2>
+                <button class="modal-close" onclick="cerrarModal('modalAbono')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="infoClienteAbono" style="background: var(--light); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                    <p><strong>Cliente:</strong> <span id="nombreClienteAbono"></span></p>
+                    <p><strong>Deuda actual:</strong> <span id="deudaClienteAbono" style="color: var(--danger); font-size: 24px; font-weight: bold;"></span></p>
+                </div>
+                <form id="abonoForm">
+                    <div class="form-group">
+                        <label>Monto del Abono *</label>
+                        <input type="number" id="montoAbono" required min="1" step="1" placeholder="Ingrese el monto">
+                    </div>
+                    <div id="previewAbono" style="background: #D1FAE5; padding: 12px; border-radius: 8px; margin-bottom: 16px; display: none;">
+                        <p style="margin: 0;"><strong>Deuda después del abono:</strong> <span id="deudaDespuesAbono" style="color: var(--success); font-size: 18px; font-weight: 600;"></span></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" onclick="cerrarModal('modalAbono')">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Registrar Abono</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/sidebar.js"></script>
+    <script>
+        let clienteActual = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!Auth.requireAuth()) return;
+            await cargarClientes();
+            document.getElementById('clienteForm').addEventListener('submit', guardarCliente);
+            document.getElementById('abonoForm').addEventListener('submit', registrarAbono);
+            
+            // Calcular deuda después del abono en tiempo real
+            document.getElementById('montoAbono').addEventListener('input', calcularDeudaDespuesAbono);
+        });
+        
+        async function cargarClientes() {
+            try {
+                const data = await API.get('/clientes');
+                const clientes = data.clientes || [];
+                
+                const container = document.getElementById('clientesTable');
+                if (clientes.length === 0) {
+                    container.innerHTML = '<p class="text-center">No hay clientes registrados</p>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Teléfono</th>
+                                <th>Deuda Actual</th>
+                                <th>Límite Crédito</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${clientes.map(c => `
+                                <tr>
+                                    <td><strong>${c.nombre}</strong></td>
+                                    <td>${c.telefono || 'N/A'}</td>
+                                    <td>
+                                        <span class="badge ${c.deudaTotal > 0 ? 'badge-danger' : 'badge-success'}">
+                                            ${Utils.formatCurrency(c.deudaTotal)}
+                                        </span>
+                                    </td>
+                                    <td>${Utils.formatCurrency(c.limiteCredito)}</td>
+                                    <td>
+                                        <button class="btn btn-info" style="padding: 6px 12px; font-size: 13px;" onclick="verDeuda('${c._id}')">
+                                            💰 Ver Deuda
+                                        </button>
+                                        ${c.deudaTotal > 0 ? `
+                                            <button class="btn btn-success" style="padding: 6px 12px; font-size: 13px;" onclick="abrirModalAbono('${c._id}', '${c.nombre}', ${c.deudaTotal})">
+                                                💵 Abonar
+                                            </button>
+                                        ` : ''}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+        
+        function nuevoCliente() {
+            document.getElementById('clienteForm').reset();
+            document.getElementById('modalCliente').style.display = 'flex';
+        }
+        
+        function cerrarModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        async function guardarCliente(e) {
+            e.preventDefault();
+            
+            const data = {
+                nombre: document.getElementById('nombre').value,
+                telefono: document.getElementById('telefono').value,
+                direccion: document.getElementById('direccion').value,
+                limiteCredito: parseFloat(document.getElementById('limiteCredito').value)
+            };
+            
+            try {
+                await API.post('/clientes', data);
+                Utils.showAlert('Cliente creado exitosamente');
+                cerrarModal('modalCliente');
+                await cargarClientes();
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+
+        async function verDeuda(clienteId) {
+            try {
+                const data = await API.get(`/clientes/${clienteId}/deuda`);
+                
+                const infoDiv = document.getElementById('deudaInfo');
+                infoDiv.innerHTML = `
+                    <div style="background: var(--light); padding: 16px; border-radius: 8px;">
+                        <h3>${data.cliente.nombre}</h3>
+                        <p><strong>Teléfono:</strong> ${data.cliente.telefono || 'N/A'}</p>
+                        <p style="font-size: 24px; margin-top: 12px;">
+                            <strong>Deuda Total:</strong> 
+                            <span style="color: ${data.cliente.deudaTotal > 0 ? 'var(--danger)' : 'var(--success)'}; font-weight: bold;">
+                                ${Utils.formatCurrency(data.cliente.deudaTotal)}
+                            </span>
+                        </p>
+                    </div>
+                `;
+
+                const ventasDiv = document.getElementById('ventasPendientes');
+                if (data.ventasPendientes.length === 0) {
+                    ventasDiv.innerHTML = '<p class="text-center" style="color: var(--success); margin-top: 20px;">✅ No tiene ventas pendientes</p>';
+                } else {
+                    ventasDiv.innerHTML = `
+                        <h4>Ventas Pendientes (${data.ventasPendientes.length})</h4>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Productos</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.ventasPendientes.map(v => `
+                                    <tr>
+                                        <td>${Utils.formatDate(v.createdAt)}</td>
+                                        <td>${v.productos.length} items</td>
+                                        <td><strong>${Utils.formatCurrency(v.total)}</strong></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+
+                document.getElementById('modalDeuda').style.display = 'flex';
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+
+        function abrirModalAbono(clienteId, nombre, deudaActual) {
+            clienteActual = { id: clienteId, nombre, deuda: deudaActual };
+            
+            document.getElementById('nombreClienteAbono').textContent = nombre;
+            document.getElementById('deudaClienteAbono').textContent = Utils.formatCurrency(deudaActual);
+            document.getElementById('montoAbono').value = '';
+            document.getElementById('montoAbono').max = deudaActual;
+            document.getElementById('previewAbono').style.display = 'none';
+            
+            document.getElementById('modalAbono').style.display = 'flex';
+        }
+
+        function calcularDeudaDespuesAbono() {
+            const monto = parseFloat(document.getElementById('montoAbono').value) || 0;
+            const deudaActual = clienteActual.deuda;
+            
+            if (monto > 0 && monto <= deudaActual) {
+                const deudaDespues = deudaActual - monto;
+                document.getElementById('deudaDespuesAbono').textContent = Utils.formatCurrency(deudaDespues);
+                document.getElementById('previewAbono').style.display = 'block';
+            } else {
+                document.getElementById('previewAbono').style.display = 'none';
+            }
+        }
+
+        async function registrarAbono(e) {
+            e.preventDefault();
+            
+            const monto = parseFloat(document.getElementById('montoAbono').value);
+            
+            if (!monto || monto <= 0) {
+                alert('❌ Ingrese un monto válido');
+                return;
+            }
+
+            if (monto > clienteActual.deuda) {
+                alert(`❌ El monto del abono (${Utils.formatCurrency(monto)}) no puede ser mayor a la deuda (${Utils.formatCurrency(clienteActual.deuda)})`);
+                return;
+            }
+
+            try {
+                const result = await API.post(`/clientes/${clienteActual.id}/abono`, { monto });
+                
+                const mensaje = result.cliente.saldada 
+                    ? `✅ ¡Deuda saldada completamente!\n\nCliente: ${result.cliente.nombre}\nAbono: ${Utils.formatCurrency(result.cliente.montoAbonado)}\n\n🎉 El cliente ya no tiene deuda pendiente`
+                    : `✅ Abono registrado exitosamente!\n\nCliente: ${result.cliente.nombre}\nDeuda anterior: ${Utils.formatCurrency(result.cliente.deudaAnterior)}\nAbono: ${Utils.formatCurrency(result.cliente.montoAbonado)}\nDeuda actual: ${Utils.formatCurrency(result.cliente.deudaActual)}`;
+                
+                alert(mensaje);
+                
+                cerrarModal('modalAbono');
+                await cargarClientes();
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+    </script>
+</body>
+</html>

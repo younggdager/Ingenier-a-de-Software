@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mantenimiento de Equipos - Sistema de Gestión</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <h1>🔧 Mantenimiento de Equipos</h1>
+                <p>Registro y control de mantenimiento preventivo y correctivo</p>
+            </div>
+
+            <!-- Estadísticas -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #FEF3C7;">⏳</div>
+                    <div class="stat-info">
+                        <p class="stat-label">Pendientes</p>
+                        <h3 class="stat-value" id="statPendientes">0</h3>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #DBEAFE;">🔄</div>
+                    <div class="stat-info">
+                        <p class="stat-label">En Proceso</p>
+                        <h3 class="stat-value" id="statEnProceso">0</h3>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #D1FAE5;">✅</div>
+                    <div class="stat-info">
+                        <p class="stat-label">Completados</p>
+                        <h3 class="stat-value" id="statCompletados">0</h3>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #FEE2E2;">💰</div>
+                    <div class="stat-info">
+                        <p class="stat-label">Costo Total</p>
+                        <h3 class="stat-value" id="statCosto">$0</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Registros de Mantenimiento</h3>
+                    <div class="flex gap-2">
+                        <button class="btn btn-warning" onclick="verProximos()">🔔 Próximos</button>
+                        <button class="btn btn-primary" onclick="abrirModal()">+ Nuevo Registro</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+                        <select id="filtroEstado" onchange="cargarMantenimientos()" style="padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;">
+                            <option value="">Todos los estados</option>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="En Proceso">En Proceso</option>
+                            <option value="Completado">Completado</option>
+                            <option value="Cancelado">Cancelado</option>
+                        </select>
+                        <select id="filtroTipo" onchange="cargarMantenimientos()" style="padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;">
+                            <option value="">Todos los tipos</option>
+                            <option value="Preventivo">Preventivo</option>
+                            <option value="Correctivo">Correctivo</option>
+                            <option value="Instalación">Instalación</option>
+                            <option value="Actualización">Actualización</option>
+                        </select>
+                        <select id="filtroEquipo" onchange="cargarMantenimientos()" style="padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;">
+                            <option value="">Todos los equipos</option>
+                            <option value="Refrigerador">Refrigerador</option>
+                            <option value="Computadora">Computadora</option>
+                            <option value="POS">POS</option>
+                            <option value="Impresora">Impresora</option>
+                            <option value="Báscula">Báscula</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <div id="mantenimientosTable">Cargando...</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Crear/Editar -->
+    <div id="modalMantenimiento" class="modal-overlay" style="display: none;">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 id="modalTitle">Nuevo Registro de Mantenimiento</h2>
+                <button class="modal-close" onclick="cerrarModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="mantenimientoForm">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label>Equipo *</label>
+                            <input type="text" id="equipo" required placeholder="Ej: Refrigerador Principal">
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo de Equipo *</label>
+                            <select id="tipoEquipo" required>
+                                <option value="">Seleccione...</option>
+                                <option value="Refrigerador">Refrigerador</option>
+                                <option value="Computadora">Computadora</option>
+                                <option value="POS">POS</option>
+                                <option value="Impresora">Impresora</option>
+                                <option value="Báscula">Báscula</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label>Tipo de Mantenimiento *</label>
+                            <select id="tipoMantenimiento" required>
+                                <option value="">Seleccione...</option>
+                                <option value="Preventivo">Preventivo</option>
+                                <option value="Correctivo">Correctivo</option>
+                                <option value="Instalación">Instalación</option>
+                                <option value="Actualización">Actualización</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Prioridad *</label>
+                            <select id="prioridad" required>
+                                <option value="Baja">Baja</option>
+                                <option value="Media" selected>Media</option>
+                                <option value="Alta">Alta</option>
+                                <option value="Urgente">Urgente</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descripción del Problema/Trabajo *</label>
+                        <textarea id="descripcion" required rows="3" placeholder="Detalle del mantenimiento a realizar..."></textarea>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label>Técnico Responsable *</label>
+                            <input type="text" id="tecnico" required placeholder="Nombre del técnico">
+                        </div>
+                        <div class="form-group">
+                            <label>Empresa (Opcional)</label>
+                            <input type="text" id="empresa" placeholder="Empresa de servicio técnico">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label>Fecha Mantenimiento *</label>
+                            <input type="date" id="fechaMantenimiento" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Próximo Mant. (Opcional)</label>
+                            <input type="date" id="proximoMantenimiento">
+                        </div>
+                        <div class="form-group">
+                            <label>Costo</label>
+                            <input type="number" id="costo" min="0" value="0" placeholder="0">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Estado *</label>
+                        <select id="estado" required>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="En Proceso">En Proceso</option>
+                            <option value="Completado">Completado</option>
+                            <option value="Cancelado">Cancelado</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Observaciones</label>
+                        <textarea id="observaciones" rows="2" placeholder="Notas adicionales..."></textarea>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" onclick="cerrarModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ver Detalle -->
+    <div id="modalDetalle" class="modal-overlay" style="display: none;">
+        <div class="modal" style="max-width: 650px;">
+            <div class="modal-header">
+                <h2>📋 Detalle de Mantenimiento</h2>
+                <button class="modal-close" onclick="cerrarModal('modalDetalle')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="detalleMantenimiento"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/sidebar.js"></script>
+    <script>
+        let mantenimientos = [];
+        let mantenimientoEditando = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!Auth.requireAuth()) return;
+            
+            // Establecer fecha de hoy
+            document.getElementById('fechaMantenimiento').valueAsDate = new Date();
+            
+            await Promise.all([cargarEstadisticas(), cargarMantenimientos()]);
+            
+            document.getElementById('mantenimientoForm').addEventListener('submit', guardarMantenimiento);
+        });
+
+        async function cargarEstadisticas() {
+            try {
+                const data = await API.get('/mantenimiento/estadisticas');
+                const stats = data.estadisticas;
+                
+                document.getElementById('statPendientes').textContent = stats.porEstado.pendientes;
+                document.getElementById('statEnProceso').textContent = stats.porEstado.enProceso;
+                document.getElementById('statCompletados').textContent = stats.porEstado.completados;
+                document.getElementById('statCosto').textContent = Utils.formatCurrency(stats.costoTotal);
+            } catch (error) {
+                console.error('Error al cargar estadísticas:', error);
+            }
+        }
+
+        async function cargarMantenimientos() {
+            try {
+                const estado = document.getElementById('filtroEstado').value;
+                const tipo = document.getElementById('filtroTipo').value;
+                const equipo = document.getElementById('filtroEquipo').value;
+                
+                let url = '/mantenimiento?';
+                if (estado) url += `estado=${estado}&`;
+                if (tipo) url += `tipoMantenimiento=${tipo}&`;
+                if (equipo) url += `tipoEquipo=${equipo}&`;
+                
+                const data = await API.get(url);
+                mantenimientos = data.mantenimientos || [];
+                
+                mostrarMantenimientos();
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+
+        function mostrarMantenimientos() {
+            const container = document.getElementById('mantenimientosTable');
+            
+            if (mantenimientos.length === 0) {
+                container.innerHTML = '<p class="text-center" style="color: var(--text-light);">No hay registros de mantenimiento</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Equipo</th>
+                            <th>Tipo</th>
+                            <th>Técnico</th>
+                            <th>Prioridad</th>
+                            <th>Estado</th>
+                            <th>Costo</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${mantenimientos.map(m => `
+                            <tr>
+                                <td>${Utils.formatDate(m.fechaMantenimiento)}</td>
+                                <td>
+                                    <strong>${m.equipo}</strong><br>
+                                    <small style="color: var(--text-light);">${m.tipoEquipo}</small>
+                                </td>
+                                <td>
+                                    <span class="badge badge-${getTipoBadge(m.tipoMantenimiento)}">
+                                        ${m.tipoMantenimiento}
+                                    </span>
+                                </td>
+                                <td>
+                                    ${m.tecnico}<br>
+                                    ${m.empresa ? `<small style="color: var(--text-light);">${m.empresa}</small>` : ''}
+                                </td>
+                                <td>
+                                    <span class="badge badge-${getPrioridadBadge(m.prioridad)}">
+                                        ${m.prioridad}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge badge-${getEstadoBadge(m.estado)}">
+                                        ${m.estado}
+                                    </span>
+                                </td>
+                                <td><strong>${Utils.formatCurrency(m.costo)}</strong></td>
+                                <td>
+                                    <button class="btn btn-info" style="padding: 6px 12px; font-size: 13px;" onclick='verDetalle("${m._id}")'>👁️</button>
+                                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;" onclick='editarMantenimiento("${m._id}")'>✏️</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function getTipoBadge(tipo) {
+            const badges = {
+                'Preventivo': 'success',
+                'Correctivo': 'warning',
+                'Instalación': 'info',
+                'Actualización': 'primary'
+            };
+            return badges[tipo] || 'secondary';
+        }
+
+        function getPrioridadBadge(prioridad) {
+            const badges = {
+                'Baja': 'secondary',
+                'Media': 'info',
+                'Alta': 'warning',
+                'Urgente': 'danger'
+            };
+            return badges[prioridad] || 'secondary';
+        }
+
+        function getEstadoBadge(estado) {
+            const badges = {
+                'Pendiente': 'warning',
+                'En Proceso': 'info',
+                'Completado': 'success',
+                'Cancelado': 'danger'
+            };
+            return badges[estado] || 'secondary';
+        }
+
+        function abrirModal() {
+            mantenimientoEditando = null;
+            document.getElementById('modalTitle').textContent = 'Nuevo Registro de Mantenimiento';
+            document.getElementById('mantenimientoForm').reset();
+            document.getElementById('fechaMantenimiento').valueAsDate = new Date();
+            document.getElementById('modalMantenimiento').style.display = 'flex';
+        }
+
+        function editarMantenimiento(id) {
+            mantenimientoEditando = mantenimientos.find(m => m._id === id);
+            if (!mantenimientoEditando) return;
+            
+            document.getElementById('modalTitle').textContent = 'Editar Registro de Mantenimiento';
+            document.getElementById('equipo').value = mantenimientoEditando.equipo;
+            document.getElementById('tipoEquipo').value = mantenimientoEditando.tipoEquipo;
+            document.getElementById('tipoMantenimiento').value = mantenimientoEditando.tipoMantenimiento;
+            document.getElementById('prioridad').value = mantenimientoEditando.prioridad;
+            document.getElementById('descripcion').value = mantenimientoEditando.descripcion;
+            document.getElementById('tecnico').value = mantenimientoEditando.tecnico;
+            document.getElementById('empresa').value = mantenimientoEditando.empresa || '';
+            document.getElementById('fechaMantenimiento').value = mantenimientoEditando.fechaMantenimiento.split('T')[0];
+            document.getElementById('proximoMantenimiento').value = mantenimientoEditando.proximoMantenimiento ? mantenimientoEditando.proximoMantenimiento.split('T')[0] : '';
+            document.getElementById('costo').value = mantenimientoEditando.costo;
+            document.getElementById('estado').value = mantenimientoEditando.estado;
+            document.getElementById('observaciones').value = mantenimientoEditando.observaciones || '';
+            
+            document.getElementById('modalMantenimiento').style.display = 'flex';
+        }
+
+        function cerrarModal(modalId = 'modalMantenimiento') {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        async function guardarMantenimiento(e) {
+            e.preventDefault();
+            
+            const data = {
+                equipo: document.getElementById('equipo').value.trim(),
+                tipoEquipo: document.getElementById('tipoEquipo').value,
+                tipoMantenimiento: document.getElementById('tipoMantenimiento').value,
+                prioridad: document.getElementById('prioridad').value,
+                descripcion: document.getElementById('descripcion').value.trim(),
+                tecnico: document.getElementById('tecnico').value.trim(),
+                empresa: document.getElementById('empresa').value.trim(),
+                fechaMantenimiento: document.getElementById('fechaMantenimiento').value,
+                costo: parseFloat(document.getElementById('costo').value) || 0,
+                estado: document.getElementById('estado').value,
+                observaciones: document.getElementById('observaciones').value.trim()
+            };
+            
+            const proximo = document.getElementById('proximoMantenimiento').value;
+            if (proximo) {
+                data.proximoMantenimiento = proximo;
+            }
+            
+            try {
+                if (mantenimientoEditando) {
+                    await API.put(`/mantenimiento/${mantenimientoEditando._id}`, data);
+                    alert('✅ Registro actualizado exitosamente');
+                } else {
+                    await API.post('/mantenimiento', data);
+                    alert('✅ Registro creado exitosamente');
+                }
+                
+                cerrarModal();
+                await Promise.all([cargarEstadisticas(), cargarMantenimientos()]);
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+
+        async function verDetalle(id) {
+            try {
+                const data = await API.get(`/mantenimiento/${id}`);
+                const m = data.mantenimiento;
+                
+                const container = document.getElementById('detalleMantenimiento');
+                container.innerHTML = `
+                    <div style="background: var(--light); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div>
+                                <p style="margin: 8px 0;"><strong>Equipo:</strong> ${m.equipo}</p>
+                                <p style="margin: 8px 0;"><strong>Tipo de Equipo:</strong> ${m.tipoEquipo}</p>
+                                <p style="margin: 8px 0;"><strong>Tipo de Mant.:</strong> 
+                                    <span class="badge badge-${getTipoBadge(m.tipoMantenimiento)}">${m.tipoMantenimiento}</span>
+                                </p>
+                                <p style="margin: 8px 0;"><strong>Prioridad:</strong> 
+                                    <span class="badge badge-${getPrioridadBadge(m.prioridad)}">${m.prioridad}</span>
+                                </p>
+                            </div>
+                            <div>
+                                <p style="margin: 8px 0;"><strong>Estado:</strong> 
+                                    <span class="badge badge-${getEstadoBadge(m.estado)}">${m.estado}</span>
+                                </p>
+                                <p style="margin: 8px 0;"><strong>Técnico:</strong> ${m.tecnico}</p>
+                                ${m.empresa ? `<p style="margin: 8px 0;"><strong>Empresa:</strong> ${m.empresa}</p>` : ''}
+                                <p style="margin: 8px 0;"><strong>Costo:</strong> <span style="color: var(--primary); font-size: 18px;">${Utils.formatCurrency(m.costo)}</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin: 16px 0;">
+                        <h4>Descripción</h4>
+                        <p style="background: white; padding: 12px; border-radius: 6px; border: 1px solid var(--border);">${m.descripcion}</p>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;">
+                        <div>
+                            <p style="margin: 4px 0; color: var(--text-light); font-size: 13px;">Fecha de Mantenimiento</p>
+                            <p style="margin: 4px 0; font-weight: 600;">${Utils.formatDate(m.fechaMantenimiento)}</p>
+                        </div>
+                        ${m.proximoMantenimiento ? `
+                        <div>
+                            <p style="margin: 4px 0; color: var(--text-light); font-size: 13px;">Próximo Mantenimiento</p>
+                            <p style="margin: 4px 0; font-weight: 600;">${Utils.formatDate(m.proximoMantenimiento)}</p>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    ${m.observaciones ? `
+                    <div style="margin: 16px 0;">
+                        <h4>Observaciones</h4>
+                        <p style="background: white; padding: 12px; border-radius: 6px; border: 1px solid var(--border); color: var(--text-light);">${m.observaciones}</p>
+                    </div>
+                    ` : ''}
+                    
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+                        <p style="margin: 4px 0; font-size: 13px; color: var(--text-light);">Registrado por: ${m.usuario?.nombre || 'N/A'}</p>
+                        <p style="margin: 4px 0; font-size: 13px; color: var(--text-light);">Fecha de registro: ${Utils.formatDate(m.createdAt)}</p>
+                    </div>
+                `;
+                
+                document.getElementById('modalDetalle').style.display = 'flex';
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+
+        async function verProximos() {
+            try {
+                const data = await API.get('/mantenimiento/alertas/proximos');
+                const proximos = data.mantenimientos || [];
+                
+                if (proximos.length === 0) {
+                    alert('✅ No hay mantenimientos programados para los próximos 30 días');
+                    return;
+                }
+                
+                let mensaje = `🔔 MANTENIMIENTOS PRÓXIMOS (${proximos.length})\n\n`;
+                mensaje += 'En los próximos 30 días:\n\n';
+                
+                proximos.forEach(m => {
+                    const dias = Math.ceil((new Date(m.proximoMantenimiento) - new Date()) / (1000 * 60 * 60 * 24));
+                    mensaje += `📅 ${Utils.formatDate(m.proximoMantenimiento)} (${dias} días)\n`;
+                    mensaje += `   ${m.equipo} - ${m.tipoEquipo}\n`;
+                    mensaje += `   ${m.tipoMantenimiento}\n\n`;
+                });
+                
+                alert(mensaje);
+            } catch (error) {
+                Utils.showError(error);
+            }
+        }
+    </script>
+</body>
+</html>
